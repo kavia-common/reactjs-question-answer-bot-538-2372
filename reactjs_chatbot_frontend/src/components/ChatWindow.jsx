@@ -2,6 +2,7 @@ import React from 'react';
 import MessageList from './MessageList';
 import MessageInput from './MessageInput';
 import { GEMINI_API_KEY } from '../utils/env';
+import { safeCopyToClipboard, showInlineToast } from '../utils/clipboard';
 
 // PUBLIC_INTERFACE
 export default function ChatWindow({
@@ -15,6 +16,17 @@ export default function ChatWindow({
 }) {
   /** Central chat card with messages, error banner, and input. */
   const showInsecureWarning = Boolean(GEMINI_API_KEY);
+
+  const handleCopyError = async () => {
+    const text = (error && (error.message || String(error))) || '';
+    const ok = await safeCopyToClipboard(text);
+    if (!ok) {
+      // Show a non-intrusive toast, do not throw or log runtime errors
+      showInlineToast('Copy not available in this environment');
+    } else {
+      showInlineToast('Copied');
+    }
+  };
 
   return (
     <section className="chat-card" aria-label="Chat window">
@@ -33,15 +45,7 @@ export default function ChatWindow({
             <button className="btn-secondary" onClick={onRetry} aria-label="Retry sending message">Retry</button>
             <button
               className="btn-secondary"
-              onClick={() => {
-                try {
-                  if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
-                    navigator.clipboard.writeText(error.message || String(error));
-                  }
-                } catch {
-                  /* ignore copy failures */
-                }
-              }}
+              onClick={handleCopyError}
               aria-label="Copy error"
             >
               Copy error

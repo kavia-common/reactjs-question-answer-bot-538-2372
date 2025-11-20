@@ -354,3 +354,25 @@ body {
     min-height: 420px;
   }
 }
+
+/* Inline toast */
+.inline-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  padding: 8px 12px;
+  border-radius: 9999px;
+  box-shadow: var(--shadow-md);
+  font-size: 13px;
+  opacity: 0;
+  transition: opacity 200ms ease, transform 200ms ease;
+  z-index: 9999;
+}
+.inline-toast.visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
