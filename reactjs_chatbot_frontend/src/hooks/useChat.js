@@ -4,6 +4,19 @@ import { flags } from '../utils/env';
 
 const MAX_INPUT = 4000;
 
+/**
+ * Tiny rule-based preprocessor map.
+ * - Keys are canonical forms to match against user input after trim+lowercase.
+ * - Values are the assistant's fixed reply.
+ * Extend this object to add more instant replies.
+ */
+const RULES = {
+  'hi': 'hello',
+  'hello': 'hello',
+  'hey': 'hello',
+  'good': 'fine',
+};
+
 // PUBLIC_INTERFACE
 export function useChat() {
   /**
@@ -45,8 +58,9 @@ export function useChat() {
     if (loading) return;
 
     setError(null);
-    setLoading(true);
-    setTyping(true);
+
+    // Normalize for rule matching
+    const canonical = trimmed.toLowerCase();
 
     // push user message immediately
     const userMsg = {
@@ -57,6 +71,23 @@ export function useChat() {
     };
     lastUserMessageRef.current = userMsg;
     setMessages((prev) => [...prev, userMsg]);
+
+    // Rule-based shortcut: if matched, append assistant reply and skip backend
+    if (Object.prototype.hasOwnProperty.call(RULES, canonical)) {
+      const reply = RULES[canonical];
+      const assistantMsg = {
+        id: `a-${Date.now() + 1}`,
+        role: 'assistant',
+        content: reply,
+        createdAt: Date.now(),
+      };
+      setMessages((prev) => [...prev, assistantMsg]);
+      return; // Do not call the API
+    }
+
+    // Otherwise, proceed with normal flow to backend
+    setLoading(true);
+    setTyping(true);
 
     // prepare assistant placeholder for streaming
     const assistantId = `a-${Date.now() + 1}`;

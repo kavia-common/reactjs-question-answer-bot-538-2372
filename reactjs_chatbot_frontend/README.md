@@ -46,7 +46,7 @@ Notes:
 
 ## Environment Variables
 
-- REACT_APP_API_BASE: Base REST URL (e.g., http://localhost:8080/api). Used for POST ${API_BASE}/ask
+- REACT_APP_API_BASE: Base REST URL (e.g., http://localhost:8080/api). Used for POST ${API_BASE || '/api'}/ask
 - REACT_APP_BACKEND_URL: Fallback base when API_BASE not set
 - REACT_APP_WS_URL: Optional WebSocket URL for streaming responses
 - REACT_APP_FEATURE_FLAGS: Comma list or JSON object; include "streaming" to allow WS streaming
@@ -58,6 +58,29 @@ REACT_APP_API_BASE=http://localhost:8080/api
 REACT_APP_WS_URL=ws://localhost:8080/ws
 REACT_APP_FEATURE_FLAGS=streaming
 REACT_APP_EXPERIMENTS_ENABLED=true
+
+## Predefined Replies (Rule-based)
+
+A lightweight rule-based preprocessor is included to respond instantly to certain exact inputs without calling the backend. Matching is:
+- Case-insensitive
+- Trimmed (leading/trailing whitespace ignored)
+- Exact string match against a small built-in map
+
+Current built-in rules:
+- "hi" | "hello" | "hey" -> "hello"
+- "good" -> "fine"
+
+How to extend:
+1. Open src/hooks/useChat.js.
+2. Locate the RULES object near the top of the file.
+3. Add new entries where the key is the canonical input (lowercased string) and the value is the assistant reply, for example:
+   // 'how are you' -> 'I’m doing great!'
+   'how are you': "I'm doing great!",
+4. Save; the UI will hot reload in development.
+
+Notes:
+- For multi-word phrases, match the exact trimmed, lowercased phrase.
+- For more complex patterns (e.g., regex, startsWith), consider expanding the preprocessor logic in sendMessage before the backend call.
 
 ## Tests
 
