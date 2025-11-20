@@ -41,6 +41,22 @@ export const WS_URL = (() => {
 })();
 
 // PUBLIC_INTERFACE
+export const GEMINI_API_KEY = readEnv('REACT_APP_GEMINI_API_KEY') || '';
+
+/**
+ * PUBLIC_INTERFACE
+ * ensureGeminiKeyOrThrow validates that REACT_APP_GEMINI_API_KEY is present.
+ * Throws a descriptive error if missing. Intended for use before calling Gemini directly.
+ */
+export function ensureGeminiKeyOrThrow() {
+  if (!GEMINI_API_KEY) {
+    throw new Error(
+      'Gemini API key missing. Add REACT_APP_GEMINI_API_KEY to your .env (WARNING: placing keys in frontend is insecure for production).'
+    );
+  }
+}
+
+// PUBLIC_INTERFACE
 export const flags = {
   featureFlags: parseFlags(readEnv('REACT_APP_FEATURE_FLAGS')),
   experimentsEnabled: ['1', 'true', 'yes', 'on'].includes(String(readEnv('REACT_APP_EXPERIMENTS_ENABLED')).toLowerCase()),

@@ -1,64 +1,101 @@
-import { API_BASE, WS_URL, flags, isDev } from '../utils/env';
+import { flags, isDev, GEMINI_API_KEY, ensureGeminiKeyOrThrow } from '../utils/env';
 
 /**
  * PUBLIC_INTERFACE
- * askQuestion sends a prompt to the backend Gemini proxy.
- * - If WS_URL and streaming experiment enabled, attempts WebSocket streaming and emits partial tokens via onDelta.
- * - Otherwise performs a REST POST to `${API_BASE || '/api'}/ask`.
+ * askQuestion sends a prompt directly to Google Gemini (gemini-2.0-flash) using REST.
+ * - Preserves rule-based quick replies at the hook level; this function is called only if no rule matched.
+ * - No WebSocket streaming here; emits a single onDelta once with the full text for compatibility.
  * Returns: Promise<{ text: string }>
+ *
+ * Security note: This directly uses a client-side API key which is insecure for production.
  */
 export async function askQuestion(prompt, context = {}, onDelta, signal) {
   if (!prompt || !prompt.trim()) {
     return { text: '' };
   }
 
-  // Optional WebSocket streaming mode
-  const wantStreaming = !!WS_URL && (flags.experimentsEnabled || flags.featureFlags.streaming);
-  if (wantStreaming) {
-    try {
-      flags.streamingUsedLast = true;
-      const wsUrl = new URL(WS_URL);
-      wsUrl.searchParams.set('prompt', prompt);
-      if (context && Object.keys(context).length > 0) {
-        wsUrl.searchParams.set('context', encodeURIComponent(JSON.stringify(context)));
-      }
+  // Enforce presence of the Gemini API key in the frontend env.
+  ensureGeminiKeyOrThrow();
 
-      const final = await streamViaWebSocket(wsUrl.toString(), onDelta, signal);
-      return { text: final };
-    } catch (err) {
-      // fallback to REST if WS fails
-      if (isDev) {
-        // eslint-disable-next-line no-console
-        console.warn('WebSocket streaming failed, falling back to REST:', err);
-      }
-      flags.streamingUsedLast = false;
-    }
-  }
+  // Build payload for Gemini generateContent REST API.
+  // Docs: POST https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=API_KEY
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${encodeURIComponent(GEMINI_API_KEY)}`;
 
-  // REST path
-  const base = API_BASE || '';
-  if (!base) {
-    throw new Error('API is not configured. Please set REACT_APP_API_BASE or REACT_APP_BACKEND_URL in your .env, or provide a proxy at /api.');
-  }
-  const url = `${base.replace(/\/+$/,'')}/ask`;
+  const sysMsg = Array.isArray(context?.history)
+    ? context.history.find((m) => m.role === 'system')
+    : null;
+
+  const systemInstruction = sysMsg?.content || 'You are Gemini, a helpful assistant specialized in React. Keep answers concise with examples.';
+
+  const contents = [
+    {
+      role: 'user',
+      parts: [{ text: prompt }],
+    },
+  ];
+
+  const body = {
+    contents,
+    systemInstruction: { role: 'system', parts: [{ text: systemInstruction }] },
+    generationConfig: {
+      temperature: 0.6,
+      topP: 0.9,
+      topK: 40,
+      maxOutputTokens: 2048,
+      // candidateCount: 1, // default is fine
+    },
+    // safetySettings: [...] // keep defaults for now
+  };
 
   const controller = new AbortController();
   const compositeSignal = mergeAbortSignals(signal, controller.signal);
   const timeout = setTimeout(() => controller.abort(), 30000);
 
   try {
-    const res = await fetch(url, {
+    const res = await fetch(endpoint, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt, context }),
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
       signal: compositeSignal,
     });
+
     if (!res.ok) {
-      const body = await safeJson(res);
-      throw new Error(body?.error || `Request failed with status ${res.status}`);
+      const errBody = await safeJson(res);
+      const msg =
+        errBody?.error?.message ||
+        errBody?.error ||
+        `Gemini request failed with status ${res.status}`;
+      throw new Error(msg);
     }
+
     const data = await res.json();
-    return { text: data?.text ?? '' };
+
+    // Extract text from Gemini response
+    const text =
+      data?.candidates?.[0]?.content?.parts?.map((p) => p?.text || '').join('') ||
+      data?.text ||
+      '';
+
+    if (!text) {
+      throw new Error('Empty response from Gemini.');
+    }
+
+    // Emit once to keep onDelta contract usable (non-streaming)
+    if (typeof onDelta === 'function') {
+      try {
+        onDelta(text);
+        flags.streamingUsedLast = true; // mark so the caller doesn't re-append
+      } catch (e) {
+        if (isDev) {
+          // eslint-disable-next-line no-console
+          console.warn('onDelta callback failed:', e);
+        }
+      }
+    }
+
+    return { text };
   } catch (e) {
     if (e.name === 'AbortError') {
       throw new Error('The request timed out. Please try again.');
@@ -85,76 +122,4 @@ function mergeAbortSignals(signalA, signalB) {
     signalB.addEventListener('abort', onAbort);
   }
   return controller.signal;
-}
-
-function streamViaWebSocket(url, onDelta, signal) {
-  return new Promise((resolve, reject) => {
-    let closed = false;
-    let finalText = '';
-
-    let ws;
-
-    try {
-      ws = new WebSocket(url);
-    } catch (e) {
-      reject(e);
-      return;
-    }
-
-    const cleanup = () => {
-      if (closed) return;
-      closed = true;
-      try { ws.close(); } catch {}
-      if (signal) signal.removeEventListener?.('abort', onAbort);
-    };
-
-    const onAbort = () => {
-      cleanup();
-      reject(new Error('Streaming aborted.'));
-    };
-
-    if (signal) {
-      if (signal.aborted) return onAbort();
-      signal.addEventListener('abort', onAbort);
-    }
-
-    ws.onopen = () => {
-      // connected
-    };
-    ws.onmessage = (ev) => {
-      try {
-        const msg = JSON.parse(ev.data);
-        if (msg.type === 'delta') {
-          finalText += msg.data || '';
-          onDelta?.(msg.data || '');
-        } else if (msg.type === 'done') {
-          cleanup();
-          resolve(finalText);
-        } else if (typeof msg.text === 'string') {
-          // support simple {text}
-          finalText = msg.text;
-          cleanup();
-          resolve(finalText);
-        }
-      } catch {
-        // assume raw text
-        const data = String(ev.data || '');
-        finalText += data;
-        onDelta?.(data);
-      }
-    };
-    ws.onerror = (e) => {
-      cleanup();
-      reject(new Error('WebSocket error occurred.'));
-    };
-    ws.onclose = () => {
-      cleanup();
-      if (!finalText) {
-        // if closed without any data, consider error to fallback
-        reject(new Error('WebSocket closed without data.'));
-      } else {
-        resolve(finalText);
-      }
-    };
-  });
 }
