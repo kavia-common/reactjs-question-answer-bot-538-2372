@@ -1,0 +1,4 @@
+{
+    "command": "npm install",
+    "working_directory": "/home/kavia/workspace/code-generation/reactjs-question-answer-bot-538-2372/reactjs_chatbot_frontend"
+}
