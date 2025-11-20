@@ -33,7 +33,15 @@ export default function ChatWindow({
             <button className="btn-secondary" onClick={onRetry} aria-label="Retry sending message">Retry</button>
             <button
               className="btn-secondary"
-              onClick={() => navigator.clipboard?.writeText(error.message || String(error))}
+              onClick={() => {
+                try {
+                  if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+                    navigator.clipboard.writeText(error.message || String(error));
+                  }
+                } catch {
+                  /* ignore copy failures */
+                }
+              }}
               aria-label="Copy error"
             >
               Copy error

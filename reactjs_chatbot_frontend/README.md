@@ -32,7 +32,7 @@ REACT_APP_EXPERIMENTS_ENABLED=true
 
 Notes for proxy mode:
 - Previous REST path used by the client was `${REACT_APP_API_BASE || '/api'}/ask`. If you keep a backend, ensure it returns JSON like: `{ "text": "<assistant answer>" }`.
-- WS streaming expects messages of shape: `{type:"delta", data:"..."}`, and a final `{type:"done"}` (or a single `{text:"..."}`).
+- WS streaming expects messages of shape: `{type:"delta", data:"..."}`, and a final `{type:"done"}` (or a single `{text:"..."}).
 
 B) Direct Gemini from the frontend (INSECURE: demo/dev only)
 - In your `.env`, add:
@@ -56,6 +56,7 @@ If `REACT_APP_GEMINI_API_KEY` is missing and you attempt to send a message (with
 
 ## Files Overview
 
+- public/index.html: CRA root HTML with <div id="root"></div>.
 - src/App.js: root app, theme handling, header and chat composition.
 - src/components/Header.jsx: title, subtitle, theme toggle.
 - src/components/ChatWindow.jsx: message list + input + error display + insecure-use warning when key is present.
@@ -114,7 +115,8 @@ Notes:
 
 ## Tests
 
-If you see a test referencing the default CRA text, update assertions to the new header text "ReactJS Q&A Chatbot".
+- Run with: npm test
+- The test checks for the header and the "ReactJS Q&A Chatbot" title.
 
 ## Development Tips
 
