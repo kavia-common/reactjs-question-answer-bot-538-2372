@@ -1,8 +1,9 @@
 import { render, screen } from '@testing-library/react';
 import App from './App';
 
-test('renders learn react link', () => {
+test('renders app header title', () => {
   render(<App />);
-  const linkElement = screen.getByText(/learn react/i);
-  expect(linkElement).toBeInTheDocument();
+  const title = screen.getByRole('banner');
+  expect(title).toBeInTheDocument();
+  expect(screen.getByText(/ReactJS Q&A Chatbot/i)).toBeInTheDocument();
 });

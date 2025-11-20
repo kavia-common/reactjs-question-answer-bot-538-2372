@@ -1,47 +1,61 @@
-import React, { useState, useEffect } from 'react';
-import logo from './logo.svg';
+import React, { useEffect, useMemo, useState } from 'react';
 import './App.css';
+import './index.css';
+import Header from './components/Header';
+import ChatWindow from './components/ChatWindow';
+import { useChat } from './hooks/useChat';
+import { getStoredTheme, storeTheme, prefersReducedMotion } from './utils/env';
 
-// PUBLIC_INTERFACE
+/**
+ * Root application component for the Ocean Professional themed Gemini Q&A chatbot.
+ * Provides theme toggling, renders the header and chat window, and wires the chat hook.
+ */
 function App() {
-  const [theme, setTheme] = useState('light');
+  const [theme, setTheme] = useState(getStoredTheme() || 'light');
 
-  // Effect to apply theme to document element
   useEffect(() => {
     document.documentElement.setAttribute('data-theme', theme);
+    storeTheme(theme);
   }, [theme]);
 
-  // PUBLIC_INTERFACE
-  const toggleTheme = () => {
-    setTheme(prevTheme => prevTheme === 'light' ? 'dark' : 'light');
+  const reducedMotion = useMemo(() => prefersReducedMotion(), []);
+  const {
+    messages,
+    loading,
+    error,
+    typing,
+    sendMessage,
+    retry,
+    canSend,
+  } = useChat();
+
+  const onSend = async (text) => {
+    await sendMessage(text);
   };
 
   return (
-    <div className="App">
-      <header className="App-header">
-        <button 
-          className="theme-toggle" 
-          onClick={toggleTheme}
-          aria-label={`Switch to ${theme === 'light' ? 'dark' : 'light'} mode`}
-        >
-          {theme === 'light' ? '🌙 Dark' : '☀️ Light'}
-        </button>
-        <img src={logo} className="App-logo" alt="logo" />
-        <p>
-          Edit <code>src/App.js</code> and save to reload.
-        </p>
-        <p>
-          Current theme: <strong>{theme}</strong>
-        </p>
-        <a
-          className="App-link"
-          href="https://reactjs.org"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Learn React
-        </a>
-      </header>
+    <div className={`App app-root ${reducedMotion ? 'reduce-motion' : ''}`}>
+      <div className="gradient-bg" aria-hidden="true" />
+      <Header
+        theme={theme}
+        onToggleTheme={() => setTheme((t) => (t === 'light' ? 'dark' : 'light'))}
+      />
+      <main className="container" role="main" aria-label="Chat main content">
+        <ChatWindow
+          messages={messages}
+          loading={loading}
+          typing={typing}
+          error={error}
+          onRetry={retry}
+          onSend={onSend}
+          canSend={canSend}
+        />
+      </main>
+      <footer className="footer" aria-label="Footer">
+        <span className="footer-text">
+          Powered by Gemini API • Ocean Professional Theme
+        </span>
+      </footer>
     </div>
   );
 }

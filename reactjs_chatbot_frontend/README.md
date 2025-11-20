@@ -1,82 +1,70 @@
-# Lightweight React Template for KAVIA
+# ReactJS Q&A Chatbot Frontend (Gemini)
 
-This project provides a minimal React template with a clean, modern UI and minimal dependencies.
+A single‑page chat UI using the Ocean Professional theme to ask questions about ReactJS. Integrates with a backend Gemini proxy via REST and optionally WebSocket streaming — no extra frontend dependencies.
 
-## Features
+## Quick Start
 
-- **Lightweight**: No heavy UI frameworks - uses only vanilla CSS and React
-- **Modern UI**: Clean, responsive design with KAVIA brand styling
-- **Fast**: Minimal dependencies for quick loading times
-- **Simple**: Easy to understand and modify
+1) Install and start:
+- npm install
+- npm start
+App runs on http://localhost:3000
 
-## Getting Started
+2) Configure backend endpoint:
+Create a .env file at project root (same folder as package.json) with:
 
-In the project directory, you can run:
+REACT_APP_API_BASE=http://localhost:8080/api
+# Optional websocket for streaming
+REACT_APP_WS_URL=ws://localhost:8080/ws
+# Optional flags (comma OR JSON object). Example enables streaming:
+REACT_APP_FEATURE_FLAGS=streaming
+# Or enable experiments globally (also enables streaming attempt if WS present)
+REACT_APP_EXPERIMENTS_ENABLED=true
 
-### `npm start`
+Notes:
+- If neither REACT_APP_API_BASE nor REACT_APP_BACKEND_URL is set, the app will show a clear configuration hint when you try to send a message.
+- REST default path used by the client is `${REACT_APP_API_BASE}/ask`. Backend should respond with JSON: { "text": "<assistant answer>" }.
+- WebSocket streaming expects messages of shape: {type:"delta", data:"..."}, and a final {type:"done"} (or a single {text:"..."}).
 
-Runs the app in development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
+## UI and UX
 
-### `npm test`
+- Ocean Professional theme with #2563EB primary and #F59E0B accents, rounded corners, subtle shadows, gradient background.
+- Accessible: buttons have aria‑labels, role attributes present, keyboard send (Enter) and new line (Shift+Enter).
+- Responsive: mobile friendly layout, sticky input, smooth scrolling, respects prefers‑reduced‑motion.
+- Markdown-lite support for bold, inline code, and fenced code blocks.
 
-Launches the test runner in interactive watch mode.
+## Files Overview
 
-### `npm run build`
+- src/App.js: root app, theme handling, header and chat composition.
+- src/components/Header.jsx: title, subtitle, theme toggle.
+- src/components/ChatWindow.jsx: message list + input + error display.
+- src/components/MessageList.jsx: bubbles, markdown-lite, typing indicator.
+- src/components/MessageInput.jsx: input with keyboard handling.
+- src/hooks/useChat.js: messages state, loading, error, typing, send/retry, cleanup.
+- src/services/geminiClient.js: REST with optional WS streaming support via native fetch/WebSocket.
+- src/utils/env.js: env parsing, flags, theme preference, reduced motion.
+- src/App.css & src/index.css: Ocean Professional styles.
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+## Environment Variables
 
-## Customization
+- REACT_APP_API_BASE: Base REST URL (e.g., http://localhost:8080/api). Used for POST ${API_BASE}/ask
+- REACT_APP_BACKEND_URL: Fallback base when API_BASE not set
+- REACT_APP_WS_URL: Optional WebSocket URL for streaming responses
+- REACT_APP_FEATURE_FLAGS: Comma list or JSON object; include "streaming" to allow WS streaming
+- REACT_APP_EXPERIMENTS_ENABLED: true/false to enable experimental features globally
+- REACT_APP_NODE_ENV: environment indicator (production/dev)
 
-### Colors
+Example .env:
+REACT_APP_API_BASE=http://localhost:8080/api
+REACT_APP_WS_URL=ws://localhost:8080/ws
+REACT_APP_FEATURE_FLAGS=streaming
+REACT_APP_EXPERIMENTS_ENABLED=true
 
-The main brand colors are defined as CSS variables in `src/App.css`:
+## Tests
 
-```css
-:root {
-  --kavia-orange: #E87A41;
-  --kavia-dark: #1A1A1A;
-  --text-color: #ffffff;
-  --text-secondary: rgba(255, 255, 255, 0.7);
-  --border-color: rgba(255, 255, 255, 0.1);
-}
-```
+If you see a test referencing the default CRA text, update assertions to the new header text "ReactJS Q&A Chatbot".
 
-### Components
+## Development Tips
 
-This template uses pure HTML/CSS components instead of a UI framework. You can find component styles in `src/App.css`. 
-
-Common components include:
-- Buttons (`.btn`, `.btn-large`)
-- Container (`.container`)
-- Navigation (`.navbar`)
-- Typography (`.title`, `.subtitle`, `.description`)
-
-## Learn More
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/code-splitting](https://facebook.github.io/create-react-app/docs/code-splitting)
-
-### Analyzing the Bundle Size
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size](https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size)
-
-### Making a Progressive Web App
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app](https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app)
-
-### Advanced Configuration
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/advanced-configuration](https://facebook.github.io/create-react-app/docs/advanced-configuration)
-
-### Deployment
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/deployment](https://facebook.github.io/create-react-app/docs/deployment)
-
-### `npm run build` fails to minify
-
-This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
+- No API keys should be in the frontend; backend must handle Gemini credentials.
+- The UI shows a friendly error if the API base is not configured or request fails.
+- Copy button is available on errors to aid debugging.
